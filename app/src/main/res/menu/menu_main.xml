@@ -4,6 +4,9 @@
     <item android:id="@+id/action_lock_grid"
         android:checkable="true"
         android:title="@string/pref_lock_grid"/>
+    <item android:id="@+id/action_disable_touch"
+        android:checkable="true"
+        android:title="@string/pref_disable_touch"/>
     <item android:id="@+id/action_bike_info"
         android:icon="@drawable/ic_info_circle"
         android:title="@string/bike_info_label"

@@ -485,6 +485,8 @@
     <string name="pref_main_settings_summary">Customize optional screens to display</string>
     <string name="pref_display_music_name">Enable Music Control Screen</string>
     <string name="pref_display_dashboard_name">Enable Dashboard Screen</string>
+    <string name="pref_disable_touch">Disable Touch Interaction</string>
+    <string name="pref_disable_touch_summary">Ignore swipe and long-press gestures on the main screen. Hardware controls and the on-screen buttons still work</string>
     <string name="pref_grid_settings_title">Data Grid Customization</string>
     <string name="pref_grid_settings_summary">Customize which data points to display and in which cell</string>
     <string name="pref_lock_grid">Lock Data Grid</string>

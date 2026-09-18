@@ -423,6 +423,10 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                     boolean locked = !isGridLocked();
                     sharedPrefs.edit().putBoolean("prefLockGrid", locked).apply();
                     item.setChecked(locked);
+                } else if (itemId == R.id.action_disable_touch) {
+                    boolean disabled = !isTouchDisabled();
+                    sharedPrefs.edit().putBoolean("prefDisableTouch", disabled).apply();
+                    item.setChecked(disabled);
                 } else if (itemId == R.id.action_bike_info) {
                     Intent bikeInfoIntent = new Intent(MainActivity.this, BikeInfoActivity.class);
                     startActivity(bikeInfoIntent);
@@ -452,7 +456,10 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
     public boolean onTouch(View v, MotionEvent event) {
         getSupportActionBar().show();
         startTimer();
-        gestureDetector.onTouch(v, event);
+        // Still reveal the action bar so the menu stays reachable to re-enable touch
+        if (!isTouchDisabled()) {
+            gestureDetector.onTouch(v, event);
+        }
         return true;
     }
 
@@ -477,6 +484,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                 startActivity(faultIntent);
             } else if (id == R.id.action_menu) {
                 mMenu.findItem(R.id.action_lock_grid).setChecked(isGridLocked());
+                mMenu.findItem(R.id.action_disable_touch).setChecked(isTouchDisabled());
                 mPopupMenu.show();
             }
         }
@@ -1057,6 +1065,10 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
 
     private boolean isGridLocked() {
         return sharedPrefs.getBoolean("prefLockGrid", false);
+    }
+
+    private boolean isTouchDisabled() {
+        return sharedPrefs.getBoolean("prefDisableTouch", false);
     }
 
     @Override

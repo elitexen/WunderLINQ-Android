@@ -37,6 +37,12 @@
                 android:key="prefDisplayMusic"
                 android:title="@string/pref_display_music_name" >
             </CheckBoxPreference>
+            <CheckBoxPreference
+                android:defaultValue="false"
+                android:key="prefDisableTouch"
+                android:title="@string/pref_disable_touch"
+                android:summary="@string/pref_disable_touch_summary" >
+            </CheckBoxPreference>
         </PreferenceScreen>
         <PreferenceScreen
             android:key="prefScreenGrid"
