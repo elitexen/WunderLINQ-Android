@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/action_lock_grid"
+        android:checkable="true"
+        android:title="@string/pref_lock_grid"/>
     <item android:id="@+id/action_bike_info"
         android:icon="@drawable/ic_info_circle"
         android:title="@string/bike_info_label"

@@ -487,6 +487,8 @@
     <string name="pref_display_dashboard_name">Enable Dashboard Screen</string>
     <string name="pref_grid_settings_title">Data Grid Customization</string>
     <string name="pref_grid_settings_summary">Customize which data points to display and in which cell</string>
+    <string name="pref_lock_grid">Lock Data Grid</string>
+    <string name="pref_lock_grid_summary">Prevent the cell count and cell contents from being changed on the main screen</string>
     <string name="first">First</string>
     <string name="second">Second</string>
     <string name="third">Third</string>

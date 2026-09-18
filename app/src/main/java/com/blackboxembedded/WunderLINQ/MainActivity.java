@@ -190,7 +190,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
 
             @Override
             public void onPressLong() {
-                if (cell < maxNumCells) {
+                if (cell < maxNumCells && !isGridLocked()) {
                     showCellSelector(cell);
                 }
             }
@@ -419,7 +419,11 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
             @Override
             public boolean onMenuItemClick(MenuItem item) {
                 int itemId = item.getItemId();
-                if (itemId == R.id.action_bike_info) {
+                if (itemId == R.id.action_lock_grid) {
+                    boolean locked = !isGridLocked();
+                    sharedPrefs.edit().putBoolean("prefLockGrid", locked).apply();
+                    item.setChecked(locked);
+                } else if (itemId == R.id.action_bike_info) {
                     Intent bikeInfoIntent = new Intent(MainActivity.this, BikeInfoActivity.class);
                     startActivity(bikeInfoIntent);
                 } else if (itemId == R.id.action_data) {
@@ -472,6 +476,7 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
                 Intent faultIntent = new Intent(MainActivity.this, FaultActivity.class);
                 startActivity(faultIntent);
             } else if (id == R.id.action_menu) {
+                mMenu.findItem(R.id.action_lock_grid).setChecked(isGridLocked());
                 mPopupMenu.show();
             }
         }
@@ -998,6 +1003,9 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
 
     //Go up - Change grid count
     private void goUp(){
+        if (isGridLocked()) {
+            return;
+        }
         SoundManager.playSound(this, R.raw.directional);
         int currentCellCount = Integer.parseInt(sharedPrefs.getString("CELL_COUNT","15"));
         int nextCellCount = 1;
@@ -1022,6 +1030,9 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
 
     //Go down - Change grid count
     private void goDown(){
+        if (isGridLocked()) {
+            return;
+        }
         SoundManager.playSound(this, R.raw.directional);
         int currentCellCount = Integer.parseInt(sharedPrefs.getString("CELL_COUNT","15"));
         int nextCellCount = 1;
@@ -1042,6 +1053,10 @@ public class MainActivity extends AppCompatActivity implements View.OnTouchListe
 
         gridChange(true);
         updateDisplay();
+    }
+
+    private boolean isGridLocked() {
+        return sharedPrefs.getBoolean("prefLockGrid", false);
     }
 
     @Override
