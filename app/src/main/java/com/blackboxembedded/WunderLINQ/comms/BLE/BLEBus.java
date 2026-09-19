@@ -74,6 +74,7 @@ public class BLEBus {
                         MotorcycleData.setIgnitionStatus(false);
                         break;
                 }
+                BluetoothLeService.updateIgnitionState(ignitionValue);
 
                 //Rear Speed
                 if (((data[3] & 0xFF) != 0xFF) && ((data[4] & 0xFF) & 0x0f) != 0xF) {

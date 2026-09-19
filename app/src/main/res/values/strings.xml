@@ -925,6 +925,8 @@
     <string name="pref_fuelAlert_summary">Prompt to route to nearest fuel station when low fuel fault is present</string>
     <string name="pref_ignitionAlert_name">Ignition</string>
     <string name="pref_ignitionAlert_summary">Prompt to close app when ignition is shutoff</string>
+    <string name="pref_broadcastIgnition_name">Broadcast Ignition State</string>
+    <string name="pref_broadcastIgnition_summary">Let other apps on this phone know when the ignition turns on or off</string>
     <string name="debug_settings_title">Debug Settings</string>
     <string name="advanced_settings_title">Advanced Settings</string>
     <string-array name="dashSpeedSources_array" translatable="false">

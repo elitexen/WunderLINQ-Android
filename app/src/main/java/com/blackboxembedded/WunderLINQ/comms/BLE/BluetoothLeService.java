@@ -54,6 +54,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import androidx.preference.PreferenceManager;
 import android.telephony.CellInfoGsm;
 import android.telephony.CellInfoLte;
@@ -71,6 +72,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 
 import com.blackboxembedded.WunderLINQ.AccessoryActivity;
 import com.blackboxembedded.WunderLINQ.AlertActivity;
@@ -200,6 +202,40 @@ public class BluetoothLeService extends Service {
             "com.blackboxembedded.bluetooth.le.ACTION_GATT_CONNECTING";
     public final static String ACTION_GATT_DISCONNECTED =
             "com.blackboxembedded.bluetooth.le.ACTION_GATT_DISCONNECTED";
+
+    /**
+     * Ignition state broadcast, sent only when prefBroadcastIgnition is enabled.
+     * Lets other apps (automation, dashboards) react to the bike's ignition.
+     */
+    public final static String ACTION_IGNITION_STATE =
+            "com.blackboxembedded.WunderLINQ.ACTION_IGNITION_STATE";
+    public final static String ACTION_REQUEST_IGNITION_STATE =
+            "com.blackboxembedded.WunderLINQ.ACTION_REQUEST_IGNITION_STATE";
+    // String: IGNITION_ON, IGNITION_OFF or IGNITION_UNKNOWN
+    public static final String EXTRA_IGNITION_STATE =
+            "com.blackboxembedded.WunderLINQ.EXTRA_IGNITION_STATE";
+    // Int: raw ignition nibble 0x0-0xF, or -1 when no message has been decoded
+    public static final String EXTRA_IGNITION_RAW =
+            "com.blackboxembedded.WunderLINQ.EXTRA_IGNITION_RAW";
+    // Long: SystemClock.elapsedRealtime() when the reported state took effect
+    public static final String EXTRA_ELAPSED_REALTIME =
+            "com.blackboxembedded.WunderLINQ.EXTRA_ELAPSED_REALTIME";
+    // String: REASON_CHANGED, REASON_REQUESTED or REASON_DISCONNECTED
+    public static final String EXTRA_REASON =
+            "com.blackboxembedded.WunderLINQ.EXTRA_REASON";
+    public static final String IGNITION_ON = "ON";
+    public static final String IGNITION_OFF = "OFF";
+    public static final String IGNITION_UNKNOWN = "UNKNOWN";
+    public static final String REASON_CHANGED = "CHANGED";
+    public static final String REASON_REQUESTED = "REQUESTED";
+    public static final String REASON_DISCONNECTED = "DISCONNECTED";
+
+    // Last decoded ignition state, kept separate from MotorcycleData.ignitionStatus,
+    // which folds unknown values into off
+    private static final Object ignitionLock = new Object();
+    private static String ignitionState = IGNITION_UNKNOWN;
+    private static int ignitionRaw = -1;
+    private static long ignitionElapsedRealtime = 0;
     public final static String ACTION_GATT_SERVICES_DISCOVERED =
             "com.blackboxembedded.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
     public final static String ACTION_DATA_AVAILABLE =
@@ -360,6 +396,10 @@ public class BluetoothLeService extends Service {
         IntentFilter filter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
         registerReceiver(batteryReceiver, filter);
 
+        // Exported: ignition state requests come from other apps
+        ContextCompat.registerReceiver(this, ignitionRequestReceiver,
+                new IntentFilter(ACTION_REQUEST_IGNITION_STATE), ContextCompat.RECEIVER_EXPORTED);
+
         // Sensor Stuff
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -446,6 +486,7 @@ public class BluetoothLeService extends Service {
         sensorManager.unregisterListener(sensorEventListener, acceleration);
         sensorManager.unregisterListener(sensorEventListener, lightSensor);
         unregisterReceiver(batteryReceiver);
+        unregisterReceiver(ignitionRequestReceiver);
         if (telephonyManager != null) {
             telephonyManager.listen(signalListener, PhoneStateListener.LISTEN_NONE);
         }
@@ -461,6 +502,24 @@ public class BluetoothLeService extends Service {
                 float batteryPct = level * 100 / (float)scale;
                 MotorcycleData.setLocalBattery((double)batteryPct);
             }
+        }
+    };
+
+    private final BroadcastReceiver ignitionRequestReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String state;
+            int raw;
+            long elapsedRealtime;
+            synchronized (ignitionLock) {
+                state = ignitionState;
+                raw = ignitionRaw;
+                elapsedRealtime = ignitionElapsedRealtime;
+            }
+            if (elapsedRealtime == 0) {
+                elapsedRealtime = SystemClock.elapsedRealtime();
+            }
+            broadcastIgnitionState(state, raw, elapsedRealtime, REASON_REQUESTED);
         }
     };
 
@@ -648,6 +707,9 @@ public class BluetoothLeService extends Service {
                         "Disconnected";
                 Log.d(TAG,dataLog);
                 MotorcycleData.setHasFocus(false);
+
+                // Losing the dongle says nothing about the key
+                resetIgnitionState();
 
                 // Check for auto-trip logging
                 if (sharedPrefs.getBoolean("prefAutoTripLogging", false)) {
@@ -1545,6 +1607,55 @@ public class BluetoothLeService extends Service {
             alertIntent.putExtra("BACKGROUND", "");
             MyApplication.getContext().startActivity(alertIntent);
         }
+    }
+
+    static String ignitionStateForNibble(int raw) {
+        switch (raw) {
+            case 0x0: case 0x1: case 0x2: case 0x3:
+                return IGNITION_OFF;
+            case 0x4: case 0x5: case 0x6: case 0x7:
+                return IGNITION_ON;
+            default:
+                return IGNITION_UNKNOWN;
+        }
+    }
+
+    // Called for every decoded 0x01 message; broadcasts only when the ON/OFF/UNKNOWN state changes
+    static void updateIgnitionState(int raw) {
+        String state = ignitionStateForNibble(raw);
+        long now = SystemClock.elapsedRealtime();
+        synchronized (ignitionLock) {
+            if (state.equals(ignitionState)) {
+                return;
+            }
+            ignitionState = state;
+            ignitionRaw = raw;
+            ignitionElapsedRealtime = now;
+        }
+        broadcastIgnitionState(state, raw, now, REASON_CHANGED);
+    }
+
+    private static void resetIgnitionState() {
+        long now = SystemClock.elapsedRealtime();
+        synchronized (ignitionLock) {
+            ignitionState = IGNITION_UNKNOWN;
+            ignitionRaw = -1;
+            ignitionElapsedRealtime = now;
+        }
+        broadcastIgnitionState(IGNITION_UNKNOWN, -1, now, REASON_DISCONNECTED);
+    }
+
+    private static void broadcastIgnitionState(String state, int raw, long elapsedRealtime, String reason) {
+        if (sharedPrefs == null || !sharedPrefs.getBoolean("prefBroadcastIgnition", false)) {
+            return;
+        }
+        Log.d(TAG, "Ignition broadcast: " + state + " raw=" + raw + " reason=" + reason);
+        final Intent intent = new Intent(ACTION_IGNITION_STATE);
+        intent.putExtra(EXTRA_IGNITION_STATE, state);
+        intent.putExtra(EXTRA_IGNITION_RAW, raw);
+        intent.putExtra(EXTRA_ELAPSED_REALTIME, elapsedRealtime);
+        intent.putExtra(EXTRA_REASON, reason);
+        MyApplication.getContext().sendBroadcast(intent);
     }
 
     private int filterChange(int newDir){
